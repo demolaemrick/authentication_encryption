@@ -71,11 +71,7 @@ app.route('/register')
         console.log(err)
         res.redirect('/register')
       }else{
-        // using passport to authenticate user
-        passport.authenticate("local")(req, res, (err, result) => {
-          // Value of 'result' is set to false. The user could not be authenticated since the user is not active
-          res.redirect('/secrets')
-       })
+        console.log(regUser)
       }
     })
   })
