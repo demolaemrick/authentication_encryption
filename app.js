@@ -2,6 +2,7 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs')
 const mongoose = require('mongoose')
+const md5 = require('md5');
 
 const app = express();
 app.use(express.static('public'))
