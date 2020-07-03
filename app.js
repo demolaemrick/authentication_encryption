@@ -2,28 +2,46 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs')
 const mongoose = require('mongoose')
-//for hashing and salting
-const bcrypt = require('bcrypt');
-const saltRounds = 10;
+const session = require('express-session')
+const passport = require('passport')
+const passportLocalMongoose = require('passport-local-mongoose')
 
 
 const app = express();
 app.use(express.static('public'))
 app.set('view engine', 'ejs');
 
+//session config
+app.use(session({
+  secret: 'My little secret.',
+  resave: false,
+  saveUninitialized: false,
+  // cookie: { secure: true }
+}))
+//passport config
+app.use(passport.initialize());
+app.use(passport.session());
 
 mongoose.connect('mongodb://localhost:27017/userDB', {useNewUrlParser: true, useUnifiedTopology: true});
+mongoose.set('useCreateIndex', true)
 
 let Schema = mongoose.Schema
 
 const userSchema = new Schema ({
-  email: String,
+  username: String,
   password: String
 })
 
+//using passportLocalMongoose to hashing and salting
+userSchema.plugin(passportLocalMongoose)
 
 const User = mongoose.model('User',  userSchema)
 
+// to create a local login strategy
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 app.use(bodyParser.urlencoded({
   extended: true
@@ -32,27 +50,34 @@ app.use(bodyParser.urlencoded({
 app.get('/', (req, res) => {
   res.render('home')
 })
+app.get('/secrets', (req, res) => {
+  // for checking if the user is authenticated
+  if (req.isAuthenticated()){
+    res.render("Secrets")
+  } else{
+    res.redirect('/login')
+  }
+})
 
 app.route('/register')
   .get((req, res) => {
     res.render('register')
   })
   .post((req,res) => {
-    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
-    // Store hash in your password DB.
-      const newUser = new User({
-        email: req.body.username,
-        password: hash
-      })
-      newUser.save((err) => {
-        if(err){
-          console.log(err)
-        }else{
-          res.render('secrets')
-        }
-      })
-    });
 
+    // Note: I'm able to use .register because a plugin has been added to my Shema above.
+    User.register({username: req.body.username}, req.body.password, (err, regUser) => {
+      if(err){
+        console.log(err)
+        res.redirect('/register')
+      }else{
+        // using passport to authenticate user
+        passport.authenticate("local")(req, res, (err, result) => {
+          // Value of 'result' is set to false. The user could not be authenticated since the user is not active
+          res.redirect('/secrets')
+       })
+      }
+    })
   })
 
 app.route('/login')
@@ -60,27 +85,26 @@ app.route('/login')
     res.render('login')
   })
   .post((req,res) => {
-    const username = req.body.username
-    const password = req.body.password
-
-    User.findOne({email: username}, (err, foundUser) => {
-      if(err){
-
-      }else{
-        if(foundUser){
-          bcrypt.compare(password, foundUser.password, function(err, result) {
-            // result == true
-            if(result == true){
-              res.render('secrets')
-              console.log(`${foundUser.email} has successfully logged in!`)
-            }else{
-              res.send('Incorrect email or password')
-            }
-          });
-        }
-      }
+    const user = new User({
+      username: req.body.username,
+      password: req.body.password
     })
+    req.login(user, function(err) {
+      if(err){console.log(err)}
+      else {
+        // using passport to authenticate user
+        passport.authenticate("local")(req, res, (err, result) => {
+          // Value of 'result' is set to false. The user could not be authenticated since the user is not active
+          res.redirect('/secrets')
+       })
+      }
+    });
   })
+
+app.get('/logout', (req, res) => {
+  req.logout()
+  res.redirect('/')
+})
 
 let port = 5000
 app.listen(port, () => {
