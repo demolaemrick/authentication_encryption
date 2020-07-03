@@ -1,10 +1,11 @@
-require('dotenv').config()
-
 const express = require('express')
 const bodyParser = require('body-parser')
 const ejs = require('ejs')
 const mongoose = require('mongoose')
-const encrypt = require('mongoose-encryption');
+//for hashing and salting
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
 
 const app = express();
 app.use(express.static('public'))
@@ -20,8 +21,6 @@ const userSchema = new Schema ({
   password: String
 })
 
-let secret = process.env.SECRET;
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ['password'] });
 
 const User = mongoose.model('User',  userSchema)
 
@@ -39,17 +38,21 @@ app.route('/register')
     res.render('register')
   })
   .post((req,res) => {
-    const newUser = new User({
-      email: req.body.username,
-      password: req.body.password
-    })
-    newUser.save((err) => {
-      if(err){
-        console.log(err)
-      }else{
-        res.render('secrets')
-      }
-    })
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    // Store hash in your password DB.
+      const newUser = new User({
+        email: req.body.username,
+        password: hash
+      })
+      newUser.save((err) => {
+        if(err){
+          console.log(err)
+        }else{
+          res.render('secrets')
+        }
+      })
+    });
+
   })
 
 app.route('/login')
@@ -62,17 +65,18 @@ app.route('/login')
 
     User.findOne({email: username}, (err, foundUser) => {
       if(err){
- 
+
       }else{
         if(foundUser){
-          if(password === foundUser.password){
-            res.render('secrets')
-            console.log(`${foundUser.email} has successfully logged in!`)
-          }else{
-            res.send('Incorrect email or password')
-          }
-        }else{
-          res.send('Incorrect email or password')
+          bcrypt.compare(password, foundUser.password, function(err, result) {
+            // result == true
+            if(result == true){
+              res.render('secrets')
+              console.log(`${foundUser.email} has successfully logged in!`)
+            }else{
+              res.send('Incorrect email or password')
+            }
+          });
         }
       }
     })
@@ -80,6 +84,5 @@ app.route('/login')
 
 let port = 5000
 app.listen(port, () => {
-  console.log(`Server running on ${port}...`)
+  console.log(`Server started on port ${port}...`)
 })
-
