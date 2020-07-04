@@ -30,7 +30,8 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect("mongodb+srv://admin-ademola:"+process.env.DB_PASSWORD+"@cluster0.kcwsn.mongodb.net/userDB", {useNewUrlParser: true, useUnifiedTopology: true});
+const url = process.env.SECRET_URL
+mongoose.connect(url, {useNewUrlParser: true, useUnifiedTopology: true});
 mongoose.set('useCreateIndex', true)
 
 let Schema = mongoose.Schema
