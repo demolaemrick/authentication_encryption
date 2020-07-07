@@ -32,7 +32,7 @@ const userSchema = new Schema ({
   password: String
 })
 
-//using passportLocalMongoose to hashing and salting
+//using passportLocalMongoose for hashing and salting
 userSchema.plugin(passportLocalMongoose)
 
 const User = mongoose.model('User',  userSchema)
